@@ -1,0 +1,38 @@
+package ru.job4j.pooh.service;
+
+import ru.job4j.pooh.Request;
+import ru.job4j.pooh.Response;
+import ru.job4j.pooh.utils.HttpCode;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+import static ru.job4j.pooh.utils.HttpMethods.GET;
+import static ru.job4j.pooh.utils.HttpMethods.POST;
+
+public class QueueService implements Service {
+    private final ConcurrentHashMap<String, ConcurrentLinkedQueue<String>> map = new ConcurrentHashMap<>();
+
+    @Override
+    public Response process(Request req) {
+        return switch (req.getMethod()) {
+            case GET -> get(req);
+            case POST -> post(req);
+            default -> new Response("no handle", HttpCode.BAD_REQUEST);
+        };
+    }
+
+    private Response get(Request req) {
+        var queue = map.get(req.getQueueName());
+        if (queue == null) {
+            return new Response("queue not found: " + req.getQueueName(), HttpCode.BAD_REQUEST);
+        }
+        return new Response(queue.poll(), HttpCode.OK);
+    }
+
+    private Response post(Request req) {
+        map.putIfAbsent(req.getQueueName(), new ConcurrentLinkedQueue<>());
+        map.get(req.getQueueName()).add(req.getValue());
+        return new Response("message was added to " + req.getQueueName(), HttpCode.OK);
+    }
+}
